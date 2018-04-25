@@ -1,0 +1,53 @@
+service: serverless-typescript-app
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+  stage: dev
+  profile: serverless-john-belisle-aws
+  region: us-east-2
+
+plugins:
+  - serverless-plugin-typescript
+  - serverless-offline
+
+package:
+  include:
+    handler.ts
+    authenticatedHandler.ts
+  exclude:
+    - node_modules/**/*
+
+functions:
+  hello:
+    handler: handler.hello
+    events:
+      - http:
+          path: hello
+          method: get
+  authenticated-hello:
+    handler: authenticatedHandler.hello
+    events:
+      - http:
+          path: secret-hello
+          method: get
+          authorizer: aws_iam
+
+resources:
+  Resources:
+    InvokeAPIPolicy:
+      Type: "AWS::IAM::ManagedPolicy"
+      Properties:
+        Description: "Policy for allowing invoke access to this secured API"
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            Effect: Allow
+            Action: execute-api:Invoke
+            Resource: { "Fn::Join" : ["", ["arn:aws:execute-api:",{"Ref":"AWS::Region"},":",{"Ref":"AWS::AccountId"},":",{"Ref":"ApiGatewayRestApi"},"/*"]]}
+    APIUser:
+      Type: "AWS::IAM::User"
+      Properties:
+        ManagedPolicyArns:
+          - { "Ref": "InvokeAPIPolicy" }
+        UserName: secured-api-user
